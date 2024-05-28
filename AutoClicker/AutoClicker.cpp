@@ -6,7 +6,7 @@
 class MyFrame : public wxFrame
 {
     HHOOK hook;
-    int timer;
+    int timer, type;
     static int press;
     std::thread clicking;
     static MyFrame* instance;
@@ -22,8 +22,25 @@ public:
         wxPanel* panel = new wxPanel(this, -1);
         wxBoxSizer* vertBox = new wxBoxSizer(wxVERTICAL);
         panel->SetSizer(vertBox);
-        wxSlider* tim = new wxSlider(panel, 2, timer, 10, 10000);
-        vertBox->Add(tim, 1, wxEXPAND, 0);
+        wxStaticText* info = new wxStaticText(panel, wxID_ANY, "Clicking F4 makes you toggle on/off the autoclicker");
+        vertBox->Add(info, 1, wxALL | wxALIGN_CENTRE_HORIZONTAL, 0);
+        wxBoxSizer* timBox = new wxBoxSizer(wxVERTICAL);
+        wxSlider* tim = new wxSlider(panel, 2, 1000, 5, 10000, wxDefaultPosition, wxDefaultSize, wxSL_LABELS);
+        wxStaticText* timLabel = new wxStaticText(panel, wxID_ANY, "Miliseconds between clicks");
+        timBox->Add(timLabel, 0, wxALL | wxALIGN_CENTRE_HORIZONTAL, 10);
+        timBox->Add(tim, 5, wxEXPAND, 0);
+        tim->Bind(wxEVT_SLIDER, &MyFrame::_OnSlider, this);
+        vertBox->Add(timBox, 3, wxEXPAND, 0);
+        wxString arr[] = {"Left Mouse Button", "Middle Mouse Button", "Right Mouse Button"};
+        wxRadioBox* typeClick = new wxRadioBox(panel, 3, "Which mouse button should be clicked", wxDefaultPosition, wxDefaultSize, 3, arr);
+        typeClick->Bind(wxEVT_RADIOBOX, &MyFrame::_OnRadio, this);
+        vertBox->Add(typeClick, 3, wxEXPAND, 0);
+    }
+    void _OnSlider(wxCommandEvent &event) {
+        timer = event.GetInt();
+    }
+    void _OnRadio(wxCommandEvent& event) {
+        type = event.GetInt();
     }
     void _startClicking() {
         press = 1;
@@ -39,9 +56,25 @@ public:
         {
             INPUT input = { 0 };
             input.type = INPUT_MOUSE;
-            input.mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+            DWORD down;
+            DWORD up;
+            switch (type) {
+            case 0:
+                down = MOUSEEVENTF_LEFTDOWN;
+                up = MOUSEEVENTF_LEFTUP;
+                break;
+            case 1:
+                down = MOUSEEVENTF_MIDDLEDOWN;
+                up = MOUSEEVENTF_MIDDLEUP;
+                break;
+            case 2:
+                down = MOUSEEVENTF_RIGHTDOWN;
+                up = MOUSEEVENTF_RIGHTUP;
+                break;
+            }
+            input.mi.dwFlags = down;
             SendInput(1, &input, sizeof(INPUT));
-            input.mi.dwFlags = MOUSEEVENTF_LEFTUP;
+            input.mi.dwFlags = up;
             SendInput(1, &input, sizeof(INPUT));
             std::this_thread::sleep_for(std::chrono::milliseconds(timer));
         }
@@ -51,7 +84,7 @@ public:
         PKBDLLHOOKSTRUCT key = (PKBDLLHOOKSTRUCT)lParam;
         if (wParam == WM_KEYDOWN && nCode == HC_ACTION)
         {
-            if (key->vkCode == VK_F5) {
+            if (key->vkCode == VK_F4) {
                 if (press == 1) {
                     instance->_stopClicking();
                 }
