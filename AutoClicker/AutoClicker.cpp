@@ -4,14 +4,6 @@
 #include <chrono>
 #include <thread>
 
-#ifndef OCR_NORMAL
-#define OCR_NORMAL 32512
-#endif
-#ifndef OCR_HAND
-#define OCR_HAND 32649
-#endif
-
-
 class MyFrame : public wxFrame
 {
     HHOOK hook;
@@ -19,10 +11,11 @@ class MyFrame : public wxFrame
     int timer, type;
     int press;
     std::thread clicking;
-    static MyFrame* instance;
     wxBoxSizer* vertBox;
     wxPanel* panel;
     bool triggerNextClickAction;
+    int clicked;
+    static MyFrame* instance;
 public:
     MyFrame() : wxFrame(nullptr, wxID_ANY, "AutoClicker", wxDefaultPosition, wxSize(800,400)) {
         Center();
@@ -32,6 +25,7 @@ public:
         triggerNextClickAction = false;
         hook = SetWindowsHookExA(WH_KEYBOARD_LL, _Call, NULL, 0);
         MouseHook = SetWindowsHookEx(WH_MOUSE_LL, _MouseProc, NULL, 0);
+        clicked = 0;
     };
     void _mainFunc() {
         panel = new wxPanel(this, -1);
@@ -62,8 +56,8 @@ public:
         wxCheckBox* amountCheck = new wxCheckBox(panel, 4, "Click a certain amount of times");
         wxSpinCtrl* amount = new wxSpinCtrl(panel, 5, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS | wxSP_WRAP, 1, 10000);
         wxCheckBox* posCheck = new wxCheckBox(panel, 6, "Click at this position");
-        wxSpinCtrl* x = new wxSpinCtrl(panel, 7, "x", wxDefaultPosition, wxDefaultSize,  wxSP_WRAP, 0, 4000);
-        wxSpinCtrl* y = new wxSpinCtrl(panel, 8, "y", wxDefaultPosition, wxDefaultSize,  wxSP_WRAP, 0, 2000);
+        wxSpinCtrl* x = new wxSpinCtrl(panel, 7, "x", wxDefaultPosition, wxDefaultSize, wxSP_WRAP, 0, 4000);
+        wxSpinCtrl* y = new wxSpinCtrl(panel, 8, "y", wxDefaultPosition, wxDefaultSize, wxSP_WRAP, 0, 2000);
         wxButton* aim = new wxButton(panel, 9, "Indicate a position");
         LeftTypeBox->Add(amountCheck, 1, wxEXPAND, 0);
         LeftTypeBox->Add(amount, 3, wxEXPAND, 0);
@@ -76,7 +70,7 @@ public:
         vertBox->Add(TypeBox, 3, wxEXPAND, 0);
         aim->Bind(wxEVT_BUTTON, &MyFrame::_MousePos, this);
     }
-    void _MousePos(wxCommandEvent &event) {
+    void _MousePos(wxCommandEvent& event) {
         triggerNextClickAction = true;
     }
     void _DrawMouseButton() {
@@ -85,7 +79,7 @@ public:
         typeClick->Bind(wxEVT_RADIOBOX, &MyFrame::_OnRadio, this);
         vertBox->Add(typeClick, 3, wxEXPAND, 0);
     }
-    void _OnSlider(wxCommandEvent &event) {
+    void _OnSlider(wxCommandEvent& event) {
         timer = event.GetInt();
     }
     void _OnRadio(wxCommandEvent& event) {
@@ -93,6 +87,9 @@ public:
     }
     void _startClicking() {
         press = 1;
+        clicked = ((wxSpinCtrl*)FindWindowById(5))->GetValue();
+        if (clicking.joinable())
+            clicking.join();
         clicking = std::thread(&MyFrame::_clickLoop, this);
     }
     void _stopClicking() {
@@ -103,6 +100,9 @@ public:
     void _clickLoop() {
         while (press)
         {
+            if (((wxCheckBox*)FindWindowById(6))->GetValue()) {
+                SetCursorPos(((wxSpinCtrl*)FindWindowById(7))->GetValue(), ((wxSpinCtrl*)FindWindowById(8))->GetValue());
+            }
             INPUT input = { 0 };
             input.type = INPUT_MOUSE;
             DWORD down;
@@ -126,6 +126,12 @@ public:
             input.mi.dwFlags = up;
             SendInput(1, &input, sizeof(INPUT));
             std::this_thread::sleep_for(std::chrono::milliseconds(timer));
+            if (((wxCheckBox*)FindWindowById(4))->GetValue()) { 
+                clicked--;
+                if (clicked == 0) {
+                    press = 0;
+                }
+            }
         }
     }
     static LRESULT CALLBACK _Call(int nCode, WPARAM wParam, LPARAM lParam)
@@ -153,6 +159,9 @@ public:
             instance->triggerNextClickAction = false;
         }
         return CallNextHookEx(instance->MouseHook, nCode, wParam, lParam);
+    }
+    ~MyFrame() {
+        _stopClicking();
     }
 };
 
