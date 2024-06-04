@@ -1,5 +1,9 @@
 An autoclicker made in c++ with the use of "wxWidgets" graphical library 
 
+Demonstration at:
+
+https://www.youtube.com/watch?v=aC4bwt7JcPQ
+
 ![ScreenShot](https://github.com/SzyZub/AutoClicker/blob/master/ScreenShots/1.png)
 
 Sidenotes:
